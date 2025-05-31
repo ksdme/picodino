@@ -1,10 +1,13 @@
 #![no_std]
 #![no_main]
 
+mod background;
+
 use defmt::{info};
 use defmt_rtt as _;
 use embassy_rp::i2c::{Config, I2c};
 use embassy_executor::{self, Spawner};
+use embassy_time::Timer;
 use ssd1306::{mode::DisplayConfig, prelude::DisplayRotation, size::{DisplaySize128x64}, I2CDisplayInterface};
 use {panic_probe as _};
 
@@ -28,6 +31,17 @@ async fn main(_spawner: Spawner) {
     screen.init().expect("failed screen init");
     screen.flush().expect("failed screen flush");
 
+    let mut bg = background::Background::default();
+
     loop {
+        let pixels = bg.next();
+        for y in 0..3 {
+            for x in 0..128 {
+                screen.set_pixel(x, 61 + y, pixels[y as usize * 128 + x as usize]);
+            }
+        }
+        screen.flush().expect("could not flush");
+
+        Timer::after_millis(33).await;
     }
 }
