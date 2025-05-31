@@ -1,13 +1,39 @@
 #![no_std]
 #![no_main]
 
-use embassy_rp::i2c::{self, I2c};
+use defmt::{info};
+use defmt_rtt as _;
+use embassy_rp::i2c::{I2c, Config};
+use embassy_executor::{self, Spawner};
+use embassy_time::Timer;
+use ssd1306::{mode::DisplayConfig, prelude::DisplayRotation, size::{DisplaySize128x64}, I2CDisplayInterface};
 use {panic_probe as _};
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
-    loop {}
-}
+    // Config is 
+    let mut config = Config::default();
+    config.frequency = 400_000;
 
+    // TODO: async :)
+    let mut i2c = I2c::new_blocking(p.I2C1, p.PIN_19, p.PIN_18, config);
+
+    // Screen
+    let mut interface = I2CDisplayInterface::new(i2c);
+    let mut screen = ssd1306::Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+
+    // Init screen.
+    screen.init().expect("failed screen init");
+    screen.flush().expect("failed screen flush");
+
+    // Test.
+    screen.set_pixel(10, 10, true);
+    screen.flush().expect("failed screen flush");
+
+    loop {
+        Timer::after_secs(1).await;
+    }
+}
