@@ -12,6 +12,9 @@ type Buffer = [u128; SCREEN_HEIGHT];
 pub struct Game<'a> {
     rng: &'a mut LFSR,
 
+    v: Option<i8>,
+    y: u8,
+
     gravel: u128,
     clouds_offsets: [(u8, u8); 2],
 }
@@ -30,6 +33,10 @@ impl<'a> Game<'a> {
 
         Game {
             rng,
+
+            v: None,
+            y: 0,
+
             gravel,
             clouds_offsets,
         }
@@ -66,15 +73,38 @@ impl<'a> Game<'a> {
         const WALK_LEFT: u128 =
             0b00011110_00010101_00011111_00011100_01011110_01011100_00111100_00010000 << 64;
 
+        
+        if let Some(v) = self.v {
+            if v > 0 {
+                self.y += 3;
+
+                if self.y == GROUND_LEVEL as u8 {
+                    self.v = Some(-1);
+                }
+            } else {
+                self.y = self.y.saturating_sub(3);
+
+                if self.y <= 42 {
+                    self.v = Some(1);
+                }
+            }
+        } else {
+            self.y = GROUND_LEVEL as u8;
+        }
+
         for y in 0..8 {
             // Animate walk with an either freq.
-            let tile = if tick / 3 % 2 == 1 {
-                WALK_LEFT
+            let tile = if self.y == GROUND_LEVEL as u8 {
+                if tick / 3 % 2 == 1 {
+                    WALK_LEFT
+                } else {
+                    WALK_RIGHT
+                }
             } else {
-                WALK_RIGHT
+                STILL_TILE
             };
 
-            let abs_y = GROUND_LEVEL - 8 + y;
+            let abs_y = self.y as usize - 8 + y;
             buffer[abs_y] = buffer[abs_y]
                 // Select the byte from the tile.
                 | ((tile << 8 * y) & (0xff << 120)) >> 2;
@@ -106,5 +136,11 @@ impl<'a> Game<'a> {
         self.render_player(tick, &mut buffer);
 
         buffer
+    }
+
+    pub fn jump(&mut self) {
+        if self.v == None {
+            self.v = Some(-1);
+        }
     }
 }
