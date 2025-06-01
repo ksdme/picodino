@@ -79,7 +79,7 @@ impl<'a> Game<'a> {
                 self.y += 3;
 
                 if self.y == GROUND_LEVEL as u8 {
-                    self.v = Some(-1);
+                    self.v = None;
                 }
             } else {
                 self.y = self.y.saturating_sub(3);

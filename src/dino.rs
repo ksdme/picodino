@@ -4,9 +4,10 @@
 mod game;
 mod rng;
 
+use defmt::info;
 use defmt_rtt as _;
 use embassy_executor::{self, Spawner};
-use embassy_rp::i2c::{Config, I2c};
+use embassy_rp::{gpio::{Input, Pull}, i2c::{Config, I2c}};
 use embassy_time::Timer;
 use panic_probe as _;
 use ssd1306::{
@@ -37,7 +38,13 @@ async fn main(_spawner: Spawner) {
     let mut rng = rng::LFSR::new(2025);
     let mut game = game::Game::new(&mut rng);
 
+    let jump = Input::new(p.PIN_22, Pull::Up);
+
     loop {
+        if jump.is_low() {
+            game.jump();
+        }
+
         tick = tick.wrapping_add(1);
 
         let buffer = game.next(&tick);
