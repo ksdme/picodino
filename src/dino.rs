@@ -38,10 +38,11 @@ async fn main(_spawner: Spawner) {
         tick = tick.wrapping_add(1);
 
         let buffer = game.next(&tick);
+        // TODO: screen.draw() annoying does &[u8], but, we do row wise internal
+        // buffer. So, figure out a way to be more efficient here.
         for y in 0..64 {
             for x in 0..128 {
-                let pixel = buffer[y as usize * 128 + x as usize];
-                screen.set_pixel(x as u32, y as u32, pixel);
+                screen.set_pixel(x, y, ((buffer[y as usize] >> (127 - x)) & 1) == 1);
             }
         }
         screen.flush().expect("could not flush");

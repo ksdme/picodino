@@ -7,53 +7,50 @@ const PLATFORM_WIDTH: usize = 64;
 const PLATFORM_HEIGHT: usize = 3;
 const PLATFORM_START: usize = SCREEN_HEIGHT - PLATFORM_HEIGHT;
 
+// (6, 10) in
+// https://www.reddit.com/r/PixelArt/comments/kzqite/oc_cute_8x8_pixel_art_with_max_3_colours_per/#lightbox
+// This is already left shifted because we know that this tile will appear on the left of the screen.
+const DINO_STILL_TILE: u128 = 0b00011110_00010101_00011111_00011100_01011110_01011100_00111100_00010100 << 64;
+const DINO_WALK_LEFT: u128 = 0b00011110_00010101_00011111_00011100_01011110_01011100_00111100_00010000 << 64;
+const DINO_WALK_RIGHT: u128 = 0b00011110_00010101_00011111_00011100_01011110_01011100_00111100_00000100 << 64;
 const DINO_WIDTH: usize = 8;
 const DINO_HEIGHT: usize = 8;
 
-// (6, 10) in
-// https://www.reddit.com/r/PixelArt/comments/kzqite/oc_cute_8x8_pixel_art_with_max_3_colours_per/#lightbox
-const DINO_TILE: u64 = 0b00011110_00010101_00011111_00011100_01011110_01011100_00111100_00010100;
-
 // Having a repeating sequence is simpler than random generation at runtime.
-const GRAVEL_WIDTH: usize = 64;
-const GRAVEL_TILE: u64 = 0b00110001_01000010_10011001_01011001_01100111_10000000_00000100_11101110;
+const GRAVEL_TILE_64: u128 = 0b00110001_01000010_10011001_01011001_01100111_10000000_00000100_11101110;
+const GRAVEL_TILE: u128 = (GRAVEL_TILE_64 << 64) | GRAVEL_TILE_64 as u128;
 
 #[derive(Default)]
 pub struct Game;
 
 impl Game {
-    pub fn next(&self, tick: &u64) -> [bool; SCREEN_WIDTH * SCREEN_HEIGHT] {
-        let mut buffer = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
+    pub fn next(&self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
+        let mut buffer = [0 as u128; SCREEN_HEIGHT];
 
         // Platform
         // Ground
-        for x in 0..128 {
-            buffer[PLATFORM_START * SCREEN_WIDTH + x] = true;
-        }
+        buffer[PLATFORM_START] = u128::MAX;
 
         // Gravel
         let offset = ((tick % 128) % 64) as usize;
-        for x in offset..64 {
-            let pixel = ((GRAVEL_TILE >> (GRAVEL_WIDTH - 1 - x)) & 1) == 1;
-            buffer[(PLATFORM_START + 2) * SCREEN_WIDTH + (x - offset)] = pixel;
-        }
-
-        let mut spanned = PLATFORM_WIDTH - offset;
-        while spanned < SCREEN_WIDTH {
-            let cover = min(SCREEN_WIDTH - spanned, PLATFORM_WIDTH);
-            for x in 0..cover {
-                let pixel = ((GRAVEL_TILE >> (GRAVEL_WIDTH - 1 - x)) & 1) == 1;
-                buffer[(PLATFORM_START + 2) * SCREEN_WIDTH + spanned + x] = pixel;
-            }
-            spanned += cover;
-        }
+        buffer[PLATFORM_START + 2] =
+            // Tile with offset.
+            (GRAVEL_TILE << offset)
+            // Pad the end.
+            | (GRAVEL_TILE_64 >> (64 - offset));
 
         // Character
         for y in 0..DINO_HEIGHT {
-            for x in 0..DINO_WIDTH {
-                let pixel = ((DINO_TILE >> ((DINO_HEIGHT * DINO_WIDTH - 1) - (y * DINO_WIDTH + x))) & 1) == 1;
-                buffer[(PLATFORM_START - DINO_HEIGHT + y) * SCREEN_WIDTH + x] = pixel;
-            }
+            let abs_y = PLATFORM_START - DINO_HEIGHT + y;
+
+            // Animate walk with half the frequency of the ticks.
+            let tile = if tick % 4 >= 2 {
+                DINO_WALK_LEFT
+            } else {
+                DINO_WALK_RIGHT
+            };
+
+            buffer[abs_y] = buffer[abs_y] | ((tile << DINO_WIDTH * y) & (0xff << 120)) >> 2;
         }
 
         buffer
