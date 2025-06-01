@@ -1,6 +1,3 @@
-use core::cmp::min;
-
-const SCREEN_WIDTH: usize = 128;
 const SCREEN_HEIGHT: usize = 64;
 
 // (6, 10) in
@@ -12,15 +9,16 @@ const DINO_WALK_RIGHT: u128 = 0b00011110_00010101_00011111_00011100_01011110_010
 const DINO_WIDTH: usize = 8;
 const DINO_HEIGHT: usize = 8;
 
-// Having a repeating sequence is simpler than random generation at runtime.
-const PLATFORM_WIDTH: usize = 64;
-const PLATFORM_HEIGHT: usize = 3;
-const PLATFORM_START: usize = SCREEN_HEIGHT - PLATFORM_HEIGHT;
-const GRAVEL_TILE_64: u128 = 0b00110001_01000010_10011001_01011001_01100111_10000000_00000100_11101110;
-const GRAVEL_TILE: u128 = (GRAVEL_TILE_64 << 64) | GRAVEL_TILE_64 as u128;
+// Platform.
+const PLATFORM_PART: [u128; 3] = [
+    u128::MAX,
+    0,
+    0b00110001010000101001100101011001011001111000000000000100111011100011000101000010100110010101100101100111100000000000010011101110,
+];
+const GROUND_LEVEL: usize = SCREEN_HEIGHT - PLATFORM_PART.len();
 
-// A row of clouds.
-const CLOUD_TILES: [u128; 2] = [
+// Tiles for clouds.
+const CLOUD_PART: [u128; 2] = [
     0b00000000000000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
     0b00000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
 ];
@@ -32,29 +30,22 @@ impl Game {
     pub fn next(&self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
         let mut buffer = [0 as u128; SCREEN_HEIGHT];
 
-        // Clouds that move at a slower rate.
+        // Clouds
         let offset = tick / 3 % 128;
-        for y in 0..CLOUD_TILES.len() {
-            buffer[y + 2] = (CLOUD_TILES[y] << offset) | (CLOUD_TILES[y] >> (127 - offset));
-            // The second row of clouds are right aligned.
-            buffer[y + 13] = ((CLOUD_TILES[y] >> 64) << offset) | ((CLOUD_TILES[y] >> 64) >> (127 - offset));
+        for y in 0..CLOUD_PART.len() {
+            buffer[y + 2] = (CLOUD_PART[y] << offset) | (CLOUD_PART[y] >> (127 - offset));
+            buffer[y + 13] = ((CLOUD_PART[y] >> 64) << offset) | ((CLOUD_PART[y] >> 64) >> (127 - offset));
         }
 
         // Platform
-        // Ground
-        buffer[PLATFORM_START] = u128::MAX;
+        let offset = tick % 128;
+        for y in 0..PLATFORM_PART.len() {
+            buffer[GROUND_LEVEL + y] = (PLATFORM_PART[y] << offset) | (PLATFORM_PART[y] >> (127 - offset));
+        }
 
-        // Gravel
-        let offset = ((tick % 128) % 64) as usize;
-        buffer[PLATFORM_START + 2] =
-            // Tile with offset.
-            (GRAVEL_TILE << offset)
-            // Pad the end.
-            | (GRAVEL_TILE_64 >> (64 - offset));
-
-        // Character
+        // Dino
         for y in 0..DINO_HEIGHT {
-            let abs_y = PLATFORM_START - DINO_HEIGHT + y;
+            let abs_y = GROUND_LEVEL - DINO_HEIGHT + y;
 
             // Animate walk with half the frequency of the ticks.
             let tile = if tick % 4 >= 2 {
