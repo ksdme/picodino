@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-mod background;
+mod game;
 
 use defmt::{info};
 use defmt_rtt as _;
@@ -31,13 +31,17 @@ async fn main(_spawner: Spawner) {
     screen.init().expect("failed screen init");
     screen.flush().expect("failed screen flush");
 
-    let mut bg = background::Background::default();
+    let game = game::Game::default();
+    let mut tick: u64 = 0;
 
     loop {
-        let pixels = bg.next();
-        for y in 0..3 {
+        tick = tick.wrapping_add(1);
+
+        let buffer = game.next(&tick);
+        for y in 0..64 {
             for x in 0..128 {
-                screen.set_pixel(x, 61 + y, pixels[y as usize * 128 + x as usize]);
+                let pixel = buffer[y as usize * 128 + x as usize];
+                screen.set_pixel(x as u32, y as u32, pixel);
             }
         }
         screen.flush().expect("could not flush");
