@@ -3,6 +3,8 @@ use defmt::{info};
 
 const SCREEN_HEIGHT: usize = 64;
 
+const GROUND_LEVEL: usize = SCREEN_HEIGHT - 3;
+
 // (6, 10) in
 // https://www.reddit.com/r/PixelArt/comments/kzqite/oc_cute_8x8_pixel_art_with_max_3_colours_per/#lightbox
 // This is already left shifted because we know that this tile will appear on the left of the screen.
@@ -12,19 +14,13 @@ const DINO_WALK_RIGHT: u128 = 0b00011110_00010101_00011111_00011100_01011110_010
 const DINO_WIDTH: usize = 8;
 const DINO_HEIGHT: usize = 8;
 
-// Platform.
-const GROUND_LEVEL: usize = SCREEN_HEIGHT - 3;
-
-// Tiles for clouds.
-const CLOUD_PART: [u128; 2] = [
-    0b00000000000000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
-    0b00000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
-];
+type Buffer = [u128; SCREEN_HEIGHT];
 
 pub struct Game<'a> {
     rng: &'a mut LFSR,
 
     gravel: u128,
+    clouds_offsets: [(u8, u8); 2],
 }
 
 impl<'a> Game<'a> {
@@ -35,27 +31,41 @@ impl<'a> Game<'a> {
             | ((rng.next_u32() as u128) << 64)
             | ((rng.next_u32() as u128) << 96);
 
+        let clouds_offsets = [
+            ((64 + (rng.next_u32() % 64)) as u8, 2),
+            ((rng.next_u32() % 64) as u8, 12),
+        ];
+
         Game {
             rng,
             gravel,
+            clouds_offsets,
         }
     }
 
-    pub fn next(&mut self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
-        let mut buffer = [0 as u128; SCREEN_HEIGHT];
-
-        // Clouds
-        let offset = tick / 3 % 128;
-        for y in 0..CLOUD_PART.len() {
-            buffer[y + 2] = (CLOUD_PART[y] << offset) | (CLOUD_PART[y] >> (127 - offset));
-            buffer[y + 13] = ((CLOUD_PART[y] >> 64) << offset) | ((CLOUD_PART[y] >> 64) >> (127 - offset));
-        }
-
-        // Platform
+    fn render_platform(&mut self, buffer: &mut Buffer) {
         self.gravel = (self.gravel << 1) | (self.rng.next_bit() as u128);
         buffer[GROUND_LEVEL] = u128::MAX;
         buffer[GROUND_LEVEL + 1] = 0;
         buffer[GROUND_LEVEL + 2] = self.gravel;
+    }
+
+    fn render_clouds(&mut self, tick: &u64, buffer: &mut Buffer) {
+        let offset = tick / 3 % 128;
+        for (x_offset, y_offset) in self.clouds_offsets {
+            let tile: u128 = 0b0110 << x_offset;
+            buffer[y_offset as usize] = (tile << offset) | (tile >> (127 - offset));
+
+            let tile: u128 = 0b1111 << x_offset;
+            buffer[y_offset as usize + 1] = (tile << offset) | (tile >> (127 - offset));
+        }
+    }
+
+    pub fn next(&mut self, tick: &u64) -> Buffer {
+        let mut buffer: Buffer = [0 as u128; SCREEN_HEIGHT];
+
+        self.render_clouds(tick, &mut buffer);
+        self.render_platform(&mut buffer);
 
         // Dino
         for y in 0..DINO_HEIGHT {
