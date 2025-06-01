@@ -19,12 +19,26 @@ const PLATFORM_START: usize = SCREEN_HEIGHT - PLATFORM_HEIGHT;
 const GRAVEL_TILE_64: u128 = 0b00110001_01000010_10011001_01011001_01100111_10000000_00000100_11101110;
 const GRAVEL_TILE: u128 = (GRAVEL_TILE_64 << 64) | GRAVEL_TILE_64 as u128;
 
+// A row of clouds.
+const CLOUD_TILES: [u128; 2] = [
+    0b00000000000000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
+    0b00000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
+];
+
 #[derive(Default)]
 pub struct Game;
 
 impl Game {
     pub fn next(&self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
         let mut buffer = [0 as u128; SCREEN_HEIGHT];
+
+        // Clouds that move at a slower rate.
+        let offset = tick / 3 % 128;
+        for y in 0..CLOUD_TILES.len() {
+            buffer[y + 2] = (CLOUD_TILES[y] << offset) | (CLOUD_TILES[y] >> (127 - offset));
+            // The second row of clouds are right aligned.
+            buffer[y + 13] = ((CLOUD_TILES[y] >> 64) << offset) | ((CLOUD_TILES[y] >> 64) >> (127 - offset));
+        }
 
         // Platform
         // Ground
