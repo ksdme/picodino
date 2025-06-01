@@ -1,3 +1,7 @@
+use core::str::Bytes;
+
+use defmt::info;
+
 use crate::rng::LFSR;
 
 const SCREEN_HEIGHT: usize = 64;
@@ -49,7 +53,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    fn render_dino(&mut self, tick: &u64, buffer: &mut Buffer) {
+    fn render_player(&mut self, tick: &u64, buffer: &mut Buffer) {
         // (6, 10) in
         // https://www.reddit.com/r/PixelArt/comments/kzqite/oc_cute_8x8_pixel_art_with_max_3_colours_per/#lightbox
         // This is already left shifted because we know that this tile will appear on the left of the screen.
@@ -77,12 +81,29 @@ impl<'a> Game<'a> {
         }
     }
 
+    fn render_enemies(&mut self, tick: &u64, buffer: &mut Buffer) {
+        const TILE: u128 = 0b00100_10100_10101_11111_00100_00100_00100_00100;
+        const TILE_WIDTH: u8 = 5;
+        const TILE_HEIGHT: u8 = 8;
+
+        let offset = tick % 64;
+        for y in 0..TILE_HEIGHT {
+            // Align the tile with LSB on the 64 bit boundary.
+            let base = ((TILE << (128 - 40 + y * TILE_WIDTH)) & (0b11111 << 123)) >> 59;
+
+            // Repeat the tile to get a scrolling effect.
+            let line: u128 = base << offset | (base >> (64 - offset));
+            buffer[GROUND_LEVEL - TILE_HEIGHT as usize + y as usize] = line;
+        }
+    }
+
     pub fn next(&mut self, tick: &u64) -> Buffer {
         let mut buffer: Buffer = [0 as u128; 64];
 
         self.render_platform(tick, &mut buffer);
         self.render_clouds(tick, &mut buffer);
-        self.render_dino(tick, &mut buffer);
+        self.render_enemies(tick, &mut buffer);
+        self.render_player(tick, &mut buffer);
 
         buffer
     }
