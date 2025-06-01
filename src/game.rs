@@ -1,3 +1,6 @@
+use crate::rng::LFSR;
+use defmt::{info};
+
 const SCREEN_HEIGHT: usize = 64;
 
 // (6, 10) in
@@ -10,12 +13,7 @@ const DINO_WIDTH: usize = 8;
 const DINO_HEIGHT: usize = 8;
 
 // Platform.
-const PLATFORM_PART: [u128; 3] = [
-    u128::MAX,
-    0,
-    0b00110001010000101001100101011001011001111000000000000100111011100011000101000010100110010101100101100111100000000000010011101110,
-];
-const GROUND_LEVEL: usize = SCREEN_HEIGHT - PLATFORM_PART.len();
+const GROUND_LEVEL: usize = SCREEN_HEIGHT - 3;
 
 // Tiles for clouds.
 const CLOUD_PART: [u128; 2] = [
@@ -23,11 +21,27 @@ const CLOUD_PART: [u128; 2] = [
     0b00000000000000000000000000000111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
 ];
 
-#[derive(Default)]
-pub struct Game;
+pub struct Game<'a> {
+    rng: &'a mut LFSR,
 
-impl Game {
-    pub fn next(&self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
+    gravel: u128,
+}
+
+impl<'a> Game<'a> {
+    pub fn new(rng: &'a mut LFSR) -> Self {
+        let gravel =
+            rng.next_u32() as u128
+            | ((rng.next_u32() as u128) << 32)
+            | ((rng.next_u32() as u128) << 64)
+            | ((rng.next_u32() as u128) << 96);
+
+        Game {
+            rng,
+            gravel,
+        }
+    }
+
+    pub fn next(&mut self, tick: &u64) -> [u128; SCREEN_HEIGHT] {
         let mut buffer = [0 as u128; SCREEN_HEIGHT];
 
         // Clouds
@@ -38,10 +52,10 @@ impl Game {
         }
 
         // Platform
-        let offset = tick % 128;
-        for y in 0..PLATFORM_PART.len() {
-            buffer[GROUND_LEVEL + y] = (PLATFORM_PART[y] << offset) | (PLATFORM_PART[y] >> (127 - offset));
-        }
+        self.gravel = (self.gravel << 1) | (self.rng.next_bit() as u128);
+        buffer[GROUND_LEVEL] = u128::MAX;
+        buffer[GROUND_LEVEL + 1] = 0;
+        buffer[GROUND_LEVEL + 2] = self.gravel;
 
         // Dino
         for y in 0..DINO_HEIGHT {

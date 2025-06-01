@@ -2,6 +2,7 @@
 #![no_main]
 
 mod game;
+mod rng;
 
 use defmt::{info};
 use defmt_rtt as _;
@@ -31,8 +32,9 @@ async fn main(_spawner: Spawner) {
     screen.init().expect("failed screen init");
     screen.flush().expect("failed screen flush");
 
-    let game = game::Game::default();
     let mut tick: u64 = 0;
+    let mut rng = rng::LFSR::new(2025);
+    let mut game = game::Game::new(&mut rng);
 
     loop {
         tick = tick.wrapping_add(1);
