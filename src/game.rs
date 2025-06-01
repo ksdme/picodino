@@ -3,10 +3,6 @@ use core::cmp::min;
 const SCREEN_WIDTH: usize = 128;
 const SCREEN_HEIGHT: usize = 64;
 
-const PLATFORM_WIDTH: usize = 64;
-const PLATFORM_HEIGHT: usize = 3;
-const PLATFORM_START: usize = SCREEN_HEIGHT - PLATFORM_HEIGHT;
-
 // (6, 10) in
 // https://www.reddit.com/r/PixelArt/comments/kzqite/oc_cute_8x8_pixel_art_with_max_3_colours_per/#lightbox
 // This is already left shifted because we know that this tile will appear on the left of the screen.
@@ -17,6 +13,9 @@ const DINO_WIDTH: usize = 8;
 const DINO_HEIGHT: usize = 8;
 
 // Having a repeating sequence is simpler than random generation at runtime.
+const PLATFORM_WIDTH: usize = 64;
+const PLATFORM_HEIGHT: usize = 3;
+const PLATFORM_START: usize = SCREEN_HEIGHT - PLATFORM_HEIGHT;
 const GRAVEL_TILE_64: u128 = 0b00110001_01000010_10011001_01011001_01100111_10000000_00000100_11101110;
 const GRAVEL_TILE: u128 = (GRAVEL_TILE_64 << 64) | GRAVEL_TILE_64 as u128;
 
