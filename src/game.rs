@@ -84,7 +84,7 @@ impl<'a> Game<'a> {
             } else {
                 self.y = self.y.saturating_sub(3);
 
-                if self.y <= 42 {
+                if self.y <= 32 {
                     self.v = Some(1);
                 }
             }
@@ -127,15 +127,19 @@ impl<'a> Game<'a> {
         }
     }
 
-    pub fn next(&mut self, tick: &u64) -> Buffer {
-        let mut buffer: Buffer = [0 as u128; 64];
+    pub fn next(&mut self, tick: &u64) -> Option<Buffer> {
+        // Check for game over.
+        if self.y >= GROUND_LEVEL as u8 - 8 && tick % 64 >= 59 {
+            return None
+        }
 
+        let mut buffer: Buffer = [0 as u128; 64];
         self.render_platform(tick, &mut buffer);
         self.render_clouds(tick, &mut buffer);
         self.render_enemies(tick, &mut buffer);
         self.render_player(tick, &mut buffer);
 
-        buffer
+        Some(buffer)
     }
 
     pub fn jump(&mut self) {
